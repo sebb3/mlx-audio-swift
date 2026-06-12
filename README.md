@@ -139,6 +139,7 @@ for try await event in model.generateStream(text: text, parameters: parameters) 
 | Parakeet | [Parakeet README](Sources/MLXAudioSTT/Models/Parakeet/README.md) | [mlx-community/parakeet-tdt-0.6b-v3](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v3) |
 | Nemotron ASR | [Nemotron ASR README](Sources/MLXAudioSTT/Models/NemotronASR/README.md) | [mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit](https://huggingface.co/mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit) |
 | GLMASR | [GLMASR README](Sources/MLXAudioSTT/Models/GLMASR/README.md) | [mlx-community/GLM-ASR-Nano-2512-4bit](https://huggingface.co/mlx-community/GLM-ASR-Nano-2512-4bit) |
+| Whisper | [Whisper README](Sources/MLXAudioSTT/Models/Whisper/README.md) | [openai/whisper-large-v3-turbo](https://huggingface.co/openai/whisper-large-v3-turbo), [mlx-community/whisper-large-v3-turbo](https://huggingface.co/mlx-community/whisper-large-v3-turbo), and every other [openai/whisper-\*](https://huggingface.co/openai) / [mlx-community/whisper-\*](https://huggingface.co/mlx-community) size and `.en` variant |
 
 ### STS Models
 
