@@ -74,6 +74,11 @@ public final class VoxtralRealtimeStreamSession {
     private let temperature: Float
     private let maxTokens: Int
     private let transcriptionDelayMs: Int?
+    /// Optional additive logit bias applied before sampling. Keys are token ids;
+    /// values are additive boosts (e.g. +10.0 to strongly favour a token).
+    /// Output stays unconstrained — any token can still be sampled; bias only
+    /// increases the probability of the listed tokens. nil = no bias.
+    private let logitBias: [Int: Float]?
 
     // Only the trailing partial token (chunk ended mid-1280-sample-token) is unfrozen.
     private let frozenGuardTokens = 1
@@ -95,12 +100,14 @@ public final class VoxtralRealtimeStreamSession {
         model: VoxtralRealtimeModel,
         temperature: Float = 0.0,
         maxTokens: Int = 4096,
-        transcriptionDelayMs: Int? = nil
+        transcriptionDelayMs: Int? = nil,
+        logitBias: [Int: Float]? = nil
     ) {
         self.model = model
         self.temperature = temperature
         self.maxTokens = maxTokens
         self.transcriptionDelayMs = transcriptionDelayMs
+        self.logitBias = logitBias
         self.encState = VoxtralRealtimeStreamEncoderState(
             layers: model.encoder.transformerLayers.count
         )
@@ -197,6 +204,20 @@ public final class VoxtralRealtimeStreamSession {
         MLX.eval(lastLogits!)
     }
 
+    /// Apply additive logit bias to a 1-D logits array.
+    /// Soft bias: every token remains reachable; boosted tokens are just more likely.
+    private func applyBias(_ logits: MLXArray) -> MLXArray {
+        guard let bias = logitBias, !bias.isEmpty else { return logits }
+        // Build a sparse bias vector (same length as vocab) and add it.
+        let vocabSize = logits.shape.last ?? logits.shape[0]
+        var biasVec = [Float](repeating: 0, count: vocabSize)
+        for (tokenId, boost) in bias {
+            if tokenId >= 0 && tokenId < vocabSize { biasVec[tokenId] = boost }
+        }
+        let biasMX = MLXArray(biasVec)
+        return logits + biasMX
+    }
+
     private func decode(adapter: MLXArray, upTo emitLimit: Int) -> Delta {
         guard prefilled else { return Delta(text: "", tokenIds: []) }
 
@@ -205,7 +226,8 @@ public final class VoxtralRealtimeStreamSession {
         // EOS) so the streamed token stream is identical at temperature 0.
         while decPos < emitLimit {
             guard let logits = lastLogits else { break }
-            let token = model.sample(logits: logits, temperature: temperature)
+            let biasedLogits = applyBias(logits)
+            let token = model.sample(logits: biasedLogits, temperature: temperature)
             generated.append(token)
 
             if token == model.config.eosTokenId || generated.count > maxTokens {
@@ -244,16 +266,20 @@ public final class VoxtralRealtimeStreamSession {
 
 public extension VoxtralRealtimeModel {
     /// Create an online streaming session. Feed audio with `step(_:)`, then `finish()`.
+    /// - Parameter logitBias: Optional additive boost map `[tokenId: boost]` applied
+    ///   before sampling at every decode step. Soft bias: output stays unconstrained.
     func makeStreamSession(
         temperature: Float = 0.0,
         maxTokens: Int = 4096,
-        transcriptionDelayMs: Int? = nil
+        transcriptionDelayMs: Int? = nil,
+        logitBias: [Int: Float]? = nil
     ) -> VoxtralRealtimeStreamSession {
         VoxtralRealtimeStreamSession(
             model: self,
             temperature: temperature,
             maxTokens: maxTokens,
-            transcriptionDelayMs: transcriptionDelayMs
+            transcriptionDelayMs: transcriptionDelayMs,
+            logitBias: logitBias
         )
     }
 
