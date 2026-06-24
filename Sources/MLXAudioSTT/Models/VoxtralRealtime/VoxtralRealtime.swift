@@ -459,6 +459,29 @@ public extension VoxtralRealtimeModel {
         return model
     }
 
+    /// Like `fromPretrained` but also returns the resolved local model directory,
+    /// so callers (e.g. voiced's BiasBuilder) can load the tokenizer independently.
+    static func fromPretrainedWithDir(_ modelPath: String) async throws -> (VoxtralRealtimeModel, URL) {
+        let hfToken: String? = ProcessInfo.processInfo.environment["HF_TOKEN"]
+            ?? Bundle.main.object(forInfoDictionaryKey: "HF_TOKEN") as? String
+
+        guard let repoID = Repo.ID(rawValue: modelPath) else {
+            throw NSError(
+                domain: "VoxtralRealtimeModel",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid repository ID: \(modelPath)"]
+            )
+        }
+
+        let modelDir = try await ModelUtils.resolveOrDownloadModel(
+            repoID: repoID,
+            requiredExtension: "safetensors",
+            hfToken: hfToken
+        )
+
+        return (try fromDirectory(modelDir), modelDir)
+    }
+
     static func fromPretrained(_ modelPath: String) async throws -> VoxtralRealtimeModel {
         let hfToken: String? = ProcessInfo.processInfo.environment["HF_TOKEN"]
             ?? Bundle.main.object(forInfoDictionaryKey: "HF_TOKEN") as? String
