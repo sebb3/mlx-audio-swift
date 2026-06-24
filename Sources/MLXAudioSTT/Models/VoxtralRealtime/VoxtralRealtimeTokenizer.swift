@@ -32,14 +32,20 @@ struct VoxtralRealtimeTekkenFile: Decodable {
     }
 }
 
-final class VoxtralRealtimeTokenizer {
-    let vocab: [VoxtralRealtimeTekkenFile.VocabEntry]
-    let nSpecial: Int
-    let specialIds: Set<Int>
+public final class VoxtralRealtimeTokenizer {
+    public let vocab: [VoxtralRealtimeTekkenFile.VocabEntry]
+    public let nSpecial: Int
+    public let specialIds: Set<Int>
 
     private var bytesCache: [Int: [UInt8]] = [:]
 
-    init(tekkenURL: URL) throws {
+    /// Public byte-array accessor for a token id (for bias map construction).
+    /// Returns an empty array for special/OOV tokens.
+    public func tokenBytes(tokenId: Int) -> [UInt8] {
+        tokenBytes(for: tokenId)
+    }
+
+    public init(tekkenURL: URL) throws {
         let data = try Data(contentsOf: tekkenURL)
         let parsed = try JSONDecoder().decode(VoxtralRealtimeTekkenFile.self, from: data)
         vocab = parsed.vocab
@@ -47,7 +53,7 @@ final class VoxtralRealtimeTokenizer {
         specialIds = Set((parsed.specialTokens ?? []).compactMap { $0.rank })
     }
 
-    static func fromModelDirectory(_ modelDir: URL) throws -> VoxtralRealtimeTokenizer {
+    public static func fromModelDirectory(_ modelDir: URL) throws -> VoxtralRealtimeTokenizer {
         let tekkenURL = modelDir.appendingPathComponent("tekken.json")
         guard FileManager.default.fileExists(atPath: tekkenURL.path) else {
             throw NSError(
@@ -59,7 +65,7 @@ final class VoxtralRealtimeTokenizer {
         return try VoxtralRealtimeTokenizer(tekkenURL: tekkenURL)
     }
 
-    func decode(tokenIds: [Int]) -> String {
+    public func decode(tokenIds: [Int]) -> String {
         var out: [UInt8] = []
         out.reserveCapacity(tokenIds.count * 2)
 
